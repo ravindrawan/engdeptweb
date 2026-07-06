@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NWP Engineering Department | Division</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+Sinhala:wght@400;600&family=Times+New+Roman&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-color: #e8eef5;
+            background-image: 
+                radial-gradient(circle at top right, rgba(212, 175, 55, 0.1), transparent 50%),
+                radial-gradient(circle at bottom left, rgba(18, 35, 64, 0.08), transparent 50%);
+            background-attachment: fixed;
+        }
+        .division-container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 0 20px;
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .division-header {
+            background: linear-gradient(135deg, var(--portal-blue) 0%, #0d1b2a 100%);
+            color: white;
+            padding: 50px 40px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 15px 35px rgba(18, 35, 64, 0.25);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.4s ease;
+        }
+        .division-header.has-banner {
+            min-height: 420px;
+            align-items: flex-end;
+            padding: 40px;
+        }
+        .division-header::after {
+            content: '\f1ad'; /* building icon */
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            position: absolute;
+            right: -20px;
+            bottom: -40px;
+            font-size: 15rem;
+            color: rgba(255, 255, 255, 0.03);
+            transform: rotate(-15deg);
+        }
+        .division-header.has-banner::after {
+            display: none;
+        }
+        .division-header-content {
+            position: relative;
+            z-index: 1;
+        }
+        #divLogoContainer {
+            width: 160px;
+            height: 110px;
+            border-radius: 12px;
+            border: 4px solid var(--accent-gold);
+            overflow: hidden;
+            background: white;
+            flex-shrink: 0;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        #divLogoContainer:hover {
+            transform: scale(1.05);
+            border-color: #ffffff;
+        }
+        #divLogoImg {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: white;
+        }
+        .division-header h1 {
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+            color: #FF8C00; /* Orange */
+            font-family: 'Times New Roman', Times, serif;
+            letter-spacing: 2px;
+            font-weight: bold;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .division-header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .division-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+        }
+        .info-card {
+            background: linear-gradient(145deg, #e6f0fa, #d2e0f0);
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(18, 35, 64, 0.08);
+            border: 1px solid rgba(255,255,255,0.9);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.08);
+        }
+        .info-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 5px;
+            background: linear-gradient(90deg, var(--portal-blue), var(--accent-gold));
+        }
+        .info-card h3 {
+            color: var(--portal-blue);
+            margin-bottom: 25px;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .info-card h3 i {
+            color: var(--accent-gold);
+            font-size: 1.5rem;
+            background: rgba(212, 175, 55, 0.1);
+            padding: 12px;
+            border-radius: 12px;
+        }
+        .staff-card {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 16px;
+            margin-bottom: 0;
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        #staffContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .staff-card:hover {
+            box-shadow: 0 12px 25px rgba(18, 35, 64, 0.1);
+            transform: scale(1.02);
+            border-color: rgba(255,255,255,1);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .staff-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-right: 20px;
+            border: 3px solid white;
+            box-shadow: 0 4px 10px rgba(212, 175, 55, 0.3);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .staff-details h4 {
+            color: var(--portal-dark);
+            margin-bottom: 5px;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .staff-details .designation {
+            color: var(--portal-blue);
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: inline-block;
+            background: rgba(29, 78, 216, 0.08);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .staff-details .phone {
+            color: #64748b;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        @media(max-width: 992px) {
+            .division-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .division-header {
+                padding: 30px 20px;
+                text-align: center;
+                flex-direction: column;
+            }
+            .division-header.has-banner {
+                min-height: 280px;
+                padding: 30px 20px;
+                align-items: center;
+            }
+            .division-header h1 {
+                font-size: 2.2rem;
+            }
+        }
+        @media(max-width: 576px) {
+            .division-header h1 {
+                font-size: 1.8rem;
+            }
+            .info-card {
+                padding: 20px;
+            }
+            .staff-card {
+                flex-direction: column;
+                text-align: center;
+            }
+            .staff-photo {
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+        }
+        .header-flex {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            width: 100%;
+        }
+        .division-header-content {
+            text-align: left;
+        }
+        @media(max-width: 992px) {
+            .header-flex {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+                justify-content: center;
+            }
+            .division-header-content {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top utility bar: Lang, Search, Login -->
+    <div class="top-utility-bar">
+        <div class="container utility-container">
+            <div class="lang-selector" id="langSwitcher">
+                <a href="#" class="active" data-lang="en">English</a> | 
+                <a href="#" data-lang="si">සිංහල</a> | 
+                <a href="#" data-lang="ta">தமிழ்</a>
+            </div>
+            
+            <div class="utility-right">
+                <div class="search-bar">
+                    <input type="text" placeholder="Search ..." data-i18n-placeholder="placeholder_search">
+                    <button><i class="fas fa-search"></i></button>
+                </div>
+                <a href="login.html" class="member-login-btn"><i class="fas fa-user-lock"></i><span data-i18n="btn_login"> Members Login</span></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Branding Header -->
+    <header class="branding-header">
+        <div class="container branding-container" onclick="window.location.href='index.html'" style="cursor:pointer;">
+            <div class="all-logos">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Emblem_of_Sri_Lanka.svg/1200px-Emblem_of_Sri_Lanka.svg.png" alt="National Logo" class="emblem" onerror="this.src='logo2.jpg'">
+                <img src="Nwp_sri_lanka.jpg" alt="Provincial Logo" class="emblem">
+                <img src="office logo-Model.jpg.jpeg" alt="Department Logo" class="emblem dept-logo" onerror="this.src='logo2.jpg'">
+            </div>
+            
+            <div class="department-titles">
+                <h1 class="eng-title">NWP ENGINEERING DEPARTMENT</h1>
+                <h2 class="sin-title">වයඹ ඉංජිනේරු දෙපාර්තමේන්තුව</h2>
+                <h3 class="tam-title">வடமேல் பொறியியல் திணைக்களம்</h3>
+            </div>
+        </div>
+    </header>
+
+    <!-- Horizontal Navigation Panel -->
+    <nav class="horizontal-nav">
+        <div class="container">
+            <div class="hamburger">
+                <i class="fas fa-bars"></i> Menu
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html" data-i18n="nav_home">Home</a></li>
+                <li class="dropdown">
+                    <a href="#"><span data-i18n="nav_about">About Us</span> <i class="fas fa-caret-down"></i></a>
+                    <ul class="dropdown-content">
+                        <li><a href="index.html" data-i18n="nav_about_overview">Overview / Description</a></li>
+                        <li><a href="index.html" data-i18n="nav_about_orgchart">Organization Chart</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="#" class="active"><span data-i18n="nav_divisions">Divisions</span> <i class="fas fa-caret-down"></i></a>
+                    <ul class="dropdown-content">
+                        <li><a href="division.html?id=head-office" data-i18n="div_head_office">Head Office</a></li>
+                        <li><a href="division.html?id=kurunegala" data-i18n="div_kurunegala">Kurunegala</a></li>
+                        <li><a href="division.html?id=kuliyapitiya" data-i18n="div_kuliyapitiya">Kuliyapitiya</a></li>
+                        <li><a href="division.html?id=maho" data-i18n="div_maho">Maho</a></li>
+                        <li><a href="division.html?id=ridigama" data-i18n="div_ridigama">Ridigama</a></li>
+                        <li><a href="division.html?id=wariyapola" data-i18n="div_wariyapola">Wariyapola</a></li>
+                        <li class="division-07-item"><a href="division.html?id=puttalam" data-i18n="div_puttalam">Puttalam</a></li>
+                        <li><a href="division.html?id=wennappuwa" data-i18n="div_wennappuwa">Wennappuwa</a></li>
+                    </ul>
+                </li>
+                <li><a href="index.html?open=services" data-i18n="nav_services">Services</a></li>
+                <li><a href="#" data-i18n="nav_procurement">Procurement Notices</a></li>
+                <li class="dropdown">
+                    <a href="#"><span data-i18n="nav_downloads">Downloads</span> <i class="fas fa-caret-down"></i></a>
+                    <ul class="dropdown-content">
+                        <li><a href="#" data-i18n="dl_rate_books">Rate Books</a></li>
+                        <li><a href="#" data-i18n="dl_type_plans">Type Plans</a></li>
+                        <li><a href="#" data-i18n="dl_progress_reports">Progress Reports</a></li>
+                        <li><a href="#" data-i18n="dl_rti_act">Right to Information Act</a></li>
+                    </ul>
+                </li>
+                 <li><a href="index.html#contact" data-i18n="nav_contact">Contact Us</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="division-container">
+        
+        <div class="division-header">
+            <div class="header-flex">
+                <div id="divLogoContainer" style="display: none;">
+                    <img id="divLogoImg" src="" alt="Division Logo">
+                </div>
+                 <div class="division-header-content">
+                    <h1 id="divName" style="margin: 0; line-height: 1.2;">Division Name</h1>
+                    <p style="display: none; margin-top: 10px; margin-bottom: 0; align-items: center; gap: 8px;"><i class="fas fa-map-marker-alt" style="color:var(--accent-gold);"></i> <span id="divLocation">Location</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="division-grid">
+            <!-- Right: Staff -->
+            <div class="info-card">
+                <h3><i class="fas fa-users"></i> <span data-i18n="lbl_key_staff">Key Staff</span></h3>
+                
+                <div id="staffContainer">
+                    <!-- Dynamic staff cards populated by script -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer" style="margin-top: 50px;">
+        <div class="container footer-grid">
+            <div class="footer-box">
+                <h4 data-i18n="footer_divs">Divisions Links</h4>
+                <ul class="footer-list">
+                    <li><a href="division.html?id=head-office" data-i18n="div_head_office">Head Office</a></li>
+                    <li><a href="division.html?id=kurunegala" data-i18n="div_kurunegala_div">Kurunegala Division</a></li>
+                    <li><a href="division.html?id=kuliyapitiya" data-i18n="div_kuliyapitiya_div">Kuliyapitiya Division</a></li>
+                    <li><a href="division.html?id=maho" data-i18n="div_maho_div">Maho Division</a></li>
+                    <li><a href="division.html?id=ridigama" data-i18n="div_ridigama_div">Ridigama Division</a></li>
+                    <li><a href="division.html?id=wariyapola" data-i18n="div_wariyapola_div">Wariyapola Division</a></li>
+                    <li class="division-07-item"><a href="division.html?id=puttalam" data-i18n="div_puttalam_div">Puttalam Division</a></li>
+                    <li><a href="division.html?id=wennappuwa" data-i18n="div_wennappuwa_div">Wennappuwa Division</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-box">
+                <h4 data-i18n="footer_contact">Contact Us</h4>
+                <ul class="footer-list">
+                    <li id="footerContactAddress"><i class="fas fa-map-marker-alt"></i> Department of Engineering, NWP, Kurunegala</li>
+                    <li id="footerContactPhone"><i class="fas fa-phone"></i> +94 37 222 0000</li>
+                    <li id="footerContactEmail"><i class="fas fa-envelope"></i> info@nwpeng.gov.lk</li>
+                </ul>
+            </div>
+            
+            <div class="footer-box map-box">
+                <h4 data-i18n="footer_map">Location Map</h4>
+                <div class="map-placeholder">
+                    <iframe id="footerContactMap" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126490.13327670732!2d80.28841443690623!3d7.494747385966427!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae33a1e944b419b%3A0xe542385cc820b924!2sKurunegala!5e0!3m2!1sen!2slk!4v1714207907572!5m2!1sen!2slk" width="100%" height="150" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                </div>
+            </div>
+        </div>
+        
+        <div class="visitor-counter text-center p-3" style="background-color: #0b1528;">
+            <div class="container d-flex justify-content-between align-items-center">
+                <span><span data-i18n="footer_visitors">Total Visitors: </span><span id="visitorCountBadge" class="badge" style="background:#8b1c1c; padding: 5px 10px; border-radius: 5px;">0 0 1 4 5 8</span></span>
+                <span data-i18n="footer_powered">Powered by Digital Division - NWP © 2026</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="translations.js?v=16"></script>
+    <script src="script.js?v=16"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        let id = params.get('id');
+        if (!id) {
+            id = "kurunegala"; // fallback
+        }
+        
+        let activeDivisionData = null;
+
+        function loadDivisionData(lang) {
+            fetch(`manage_divisions.php?id=${encodeURIComponent(id)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    activeDivisionData = data.division;
+                    populateDynamicData(lang);
+                } else {
+                    console.error("Failed to load division details:", data.message);
+                }
+            })
+            .catch(err => console.error("Error fetching division:", err));
+        }
+
+        function populateDynamicData(lang) {
+            if (!activeDivisionData) return;
+            const data = activeDivisionData;
+            
+            document.getElementById('divName').innerText = data.name[lang] || data.name.en;
+            
+            const locationEl = document.getElementById('divLocation');
+            if (locationEl) {
+                locationEl.innerText = data.location[lang] || data.location.en;
+                locationEl.parentElement.style.display = 'inline-flex'; // Make location visible
+            }
+
+            // Set division logo
+            const logoContainer = document.getElementById('divLogoContainer');
+            const logoImg = document.getElementById('divLogoImg');
+            if (logoContainer && logoImg) {
+                if (data.logo_url) {
+                    logoImg.src = data.logo_url;
+                    logoContainer.style.display = 'block';
+                } else {
+                    logoContainer.style.display = 'none';
+                    logoImg.src = '';
+                }
+            }
+
+            // Set division header banner if configured
+            const headerEl = document.querySelector('.division-header');
+            if (headerEl) {
+                if (data.banner_url) {
+                    headerEl.style.background = `linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.1) 60%, rgba(0, 0, 0, 0.02) 100%), url('${data.banner_url}')`;
+                    headerEl.style.backgroundSize = 'cover';
+                    headerEl.style.backgroundPosition = 'center';
+                    headerEl.classList.add('has-banner');
+                } else {
+                    // Reset to default css gradient
+                    headerEl.style.background = '';
+                    headerEl.style.backgroundSize = '';
+                    headerEl.style.backgroundPosition = '';
+                    headerEl.classList.remove('has-banner');
+                }
+            }
+
+            // Populate Staff Dynamically
+            const staffContainer = document.getElementById('staffContainer');
+            if (staffContainer) {
+                staffContainer.innerHTML = '';
+                
+                if (data.staff && data.staff.length > 0) {
+                    data.staff.forEach(member => {
+                        const card = document.createElement('div');
+                        card.className = 'staff-card';
+
+                        const emailSection = member.email ? `
+                            <div style="margin-top: 8px;">
+                                <a href="mailto:${member.email}" class="div-email-link" style="color: var(--primary-light); font-weight: 500; font-size: 0.9rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="far fa-envelope"></i> ${member.email}
+                                </a>
+                            </div>
+                        ` : '';
+
+                        card.innerHTML = `
+                            <img src="${member.photo_url ? member.photo_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random`}" alt="${member.name}" class="staff-photo">
+                            <div class="staff-details">
+                                <h4>${member.name}</h4>
+                                <div class="designation">${member.title[lang] || member.title.en}</div>
+                                <div class="phone" style="margin-top: 4px;"><i class="fas fa-phone"></i> ${member.phone}</div>
+                                ${emailSection}
+                            </div>
+                        `;
+                        staffContainer.appendChild(card);
+                    });
+                } else {
+                    staffContainer.innerHTML = '<p style="color:#64748b; padding:20px; text-align:center; grid-column: 1/-1;">No key staff configured for this division.</p>';
+                }
+            }
+
+            // Update document title
+            document.title = "NWP Eng Dept | " + (data.name[lang] || data.name.en);
+        }
+
+        // Initialize with default language (English or persisted choice)
+        let currentLang = localStorage.getItem('selectedLanguage') || 'en';
+        loadDivisionData(currentLang);
+    </script>
+</body>
+</html>

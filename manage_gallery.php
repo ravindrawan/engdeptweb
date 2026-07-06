@@ -12,209 +12,185 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // List downloads
-        $sql = "SELECT id, title, description, category, file_url, icon_class FROM downloads ORDER BY id DESC";
+        // List gallery items
+        $sql = "SELECT id, title, image_url, description FROM gallery ORDER BY id DESC";
         $result = $conn->query($sql);
-        $downloads = [];
+        $gallery = [];
         if ($result) {
             while ($row = $result->fetch_assoc()) {
-                // Return 'desc' as a key too to remain compatible with legacy js properties
-                $row['desc'] = $row['description'];
-                $row['icon'] = $row['icon_class'];
-                $downloads[] = $row;
+                $gallery[] = $row;
             }
         }
-        echo json_encode(["status" => "success", "downloads" => $downloads]);
+        echo json_encode(["status" => "success", "gallery" => $gallery]);
         break;
 
     case 'POST':
-        // Add or Update download (with file upload support)
-        if (!isset($_POST['title']) || !isset($_POST['description']) || !isset($_POST['category'])) {
-            echo json_encode(["status" => "error", "message" => "Missing required fields (title, description, category)"]);
+        $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
+
+        // Add or Update gallery item (Supports single or multiple images on addition)
+        if (!isset($_POST['title']) || ($id === 0 && !isset($_FILES['image']))) {
+            echo json_encode(["status" => "error", "message" => "Missing title or image file"]);
             exit;
         }
 
-        $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
         $title = $conn->real_escape_string($_POST['title']);
-        $description = $conn->real_escape_string($_POST['description']);
-        $category = $conn->real_escape_string($_POST['category']);
-        
-        $file_url = null;
-        $icon_class = null;
-
-        // Check if file was uploaded
-        if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
-            $file_tmp = $_FILES['file']['tmp_name'];
-            $file_name = basename($_FILES['file']['name']);
-            // Sanitize file name
-            $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
-            
-            // Create uploads directory if not exists
-            $upload_dir = 'uploads/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            // Generate unique filename to prevent overwriting
-            $unique_name = time() . '_' . $file_name;
-            $dest_path = $upload_dir . $unique_name;
-
-            if (move_uploaded_path($file_tmp, $dest_path)) {
-                // File successfully uploaded
-                $file_url = $dest_path;
-
-                // Auto-detect icon class
-                $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-                $icon_class = 'fa-file-alt';
-                if ($ext === 'pdf') {
-                    $icon_class = 'fa-file-pdf';
-                } elseif (in_array($ext, ['doc', 'docx'])) {
-                    $icon_class = 'fa-file-word';
-                } elseif (in_array($ext, ['xls', 'xlsx'])) {
-                    $icon_class = 'fa-file-excel';
-                } elseif (in_array($ext, ['png', 'jpg', 'jpeg', 'gif'])) {
-                    $icon_class = 'fa-file-image';
-                }
-
-                // Delete old file from disk if we are updating
-                if ($id > 0) {
-                    $old_res = $conn->query("SELECT file_url FROM downloads WHERE id = $id");
-                    if ($old_res && $old_row = $old_res->fetch_assoc()) {
-                        $old_file = $old_row['file_url'];
-                        if ($old_file && $old_file !== '#' && file_exists($old_file) && strpos($old_file, 'uploads/') === 0) {
-                            @unlink($old_file);
-                        }
-                    }
-                }
-            } else {
-                echo json_encode(["status" => "error", "message" => "Failed to save uploaded file."]);
-                exit;
-            }
-        } else {
-            // Check if base64 file data was sent (fallback for backwards compatibility)
-            if (isset($_POST['fileData']) && !empty($_POST['fileData'])) {
-                $base64_data = $_POST['fileData'];
-                $file_name = isset($_POST['fileName']) ? $_POST['fileName'] : 'document.bin';
-                // Sanitize file name
-                $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
-                
-                // Create uploads directory if not exists
-                $upload_dir = 'uploads/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0755, true);
-                }
-
-                $unique_name = time() . '_' . $file_name;
-                $dest_path = $upload_dir . $unique_name;
-
-                // Strip data uri prefix if present
-                if (preg_match('/^data:([^;]+);base64,(.*)$/', $base64_data, $matches)) {
-                    $base64_data = $matches[2];
-                }
-                
-                $decoded = base64_decode($base64_data);
-                if (file_put_contents($dest_path, $decoded) !== false) {
-                    $file_url = $dest_path;
-                    // Auto-detect icon
-                    $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-                    $icon_class = 'fa-file-alt';
-                    if ($ext === 'pdf') $icon_class = 'fa-file-pdf';
-                    elseif (in_array($ext, ['doc', 'docx'])) $icon_class = 'fa-file-word';
-                    elseif (in_array($ext, ['xls', 'xlsx'])) $icon_class = 'fa-file-excel';
-                    elseif (in_array($ext, ['png', 'jpg', 'jpeg', 'gif'])) $icon_class = 'fa-file-image';
-
-                    // Delete old file from disk if we are updating
-                    if ($id > 0) {
-                        $old_res = $conn->query("SELECT file_url FROM downloads WHERE id = $id");
-                        if ($old_res && $old_row = $old_res->fetch_assoc()) {
-                            $old_file = $old_row['file_url'];
-                            if ($old_file && $old_file !== '#' && file_exists($old_file) && strpos($old_file, 'uploads/') === 0) {
-                                @unlink($old_file);
-                            }
-                        }
-                    }
-                }
-            }
+        $description = isset($_POST['description']) ? $conn->real_escape_string($_POST['description']) : '';
+        $upload_dir = 'uploads/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
         }
 
         if ($id > 0) {
-            // Update existing record
-            $sql = "UPDATE downloads SET title = '$title', description = '$description', category = '$category'";
-            if ($file_url !== null) {
-                $sql .= ", file_url = '$file_url', icon_class = '$icon_class'";
+            // Update existing gallery item
+            $image_url = null;
+            if (isset($_FILES['image'])) {
+                $error = is_array($_FILES['image']['error']) ? $_FILES['image']['error'][0] : $_FILES['image']['error'];
+                if ($error === UPLOAD_ERR_OK) {
+                    $file_tmp = is_array($_FILES['image']['tmp_name']) ? $_FILES['image']['tmp_name'][0] : $_FILES['image']['tmp_name'];
+                    $file_name = basename(is_array($_FILES['image']['name']) ? $_FILES['image']['name'][0] : $_FILES['image']['name']);
+                    $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
+                    
+                    $unique_name = 'gallery_' . time() . '_' . $file_name;
+                    $dest_path = $upload_dir . $unique_name;
+                    
+                    if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
+                        $image_url = $dest_path;
+                        
+                        // Delete old image file
+                        $old_res = $conn->query("SELECT image_url FROM gallery WHERE id = $id");
+                        if ($old_res && $old_row = $old_res->fetch_assoc()) {
+                            $old_img = $old_row['image_url'];
+                            if ($old_img && file_exists($old_img) && strpos($old_img, 'uploads/') === 0) {
+                                @unlink($old_img);
+                            }
+                        }
+                    } else {
+                        echo json_encode(["status" => "error", "message" => "Failed to save gallery image."]);
+                        exit;
+                    }
+                }
+            }
+
+            $sql = "UPDATE gallery SET title = '$title', description = '$description'";
+            if ($image_url !== null) {
+                $sql .= ", image_url = '$image_url'";
             }
             $sql .= " WHERE id = $id";
 
             if ($conn->query($sql) === TRUE) {
-                echo json_encode([
-                    "status" => "success",
-                    "message" => "Document updated successfully",
-                    "id" => $id,
-                    "file_url" => ($file_url !== null) ? $file_url : ''
-                ]);
+                echo json_encode(["status" => "success", "message" => "Gallery item updated successfully", "id" => $id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error updating document: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error updating gallery item: " . $conn->error]);
             }
         } else {
-            // Insert new record
-            $final_file_url = ($file_url !== null) ? $file_url : '#';
-            $final_icon_class = ($icon_class !== null) ? $icon_class : 'fa-file-alt';
-            $sql = "INSERT INTO downloads (title, description, category, file_url, icon_class) VALUES ('$title', '$description', '$category', '$final_file_url', '$final_icon_class')";
-            if ($conn->query($sql) === TRUE) {
-                echo json_encode([
-                    "status" => "success",
-                    "message" => "Document uploaded successfully",
-                    "id" => $conn->insert_id,
-                    "file_url" => $final_file_url
-                ]);
+            // Add new gallery items (Supports single or multiple images)
+            $errors = $_FILES['image']['error'];
+            $uploaded_count = 0;
+            $inserted_ids = [];
+            $failed_uploads = 0;
+
+            if (is_array($errors)) {
+                // Multiple images uploaded
+                $total_images = count($errors);
+                // Limit to maximum 10 images to prevent server timeouts and resource exhaustion
+                if ($total_images > 10) {
+                    $total_images = 10;
+                }
+                for ($index = 0; $index < $total_images; $index++) {
+                    $error = $errors[$index];
+                    if ($error === UPLOAD_ERR_OK) {
+                        $file_tmp = $_FILES['image']['tmp_name'][$index];
+                        $file_name = basename($_FILES['image']['name'][$index]);
+                        $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
+                        
+                        // Suffix the title with the index if there are multiple images
+                        $item_title = $title;
+                        if ($total_images > 1) {
+                            $item_title = $title . " (" . ($index + 1) . ")";
+                        }
+                        
+                        $unique_name = 'gallery_' . time() . '_' . $index . '_' . $file_name;
+                        $dest_path = $upload_dir . $unique_name;
+
+                        if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
+                            $image_url = $dest_path;
+                            $sql = "INSERT INTO gallery (title, image_url, description) VALUES ('$item_title', '$image_url', '$description')";
+                            if ($conn->query($sql) === TRUE) {
+                                $inserted_ids[] = $conn->insert_id;
+                                $uploaded_count++;
+                            } else {
+                                $failed_uploads++;
+                            }
+                        } else {
+                            $failed_uploads++;
+                        }
+                    } else {
+                        $failed_uploads++;
+                    }
+                }
+                if ($uploaded_count > 0) {
+                    echo json_encode(["status" => "success", "message" => "$uploaded_count photo(s) uploaded successfully", "ids" => $inserted_ids]);
+                } else {
+                    echo json_encode(["status" => "error", "message" => "All image uploads failed."]);
+                }
             } else {
-                echo json_encode(["status" => "error", "message" => "Error saving download: " . $conn->error]);
+                // Single image uploaded
+                if ($errors === UPLOAD_ERR_OK) {
+                    $file_tmp = $_FILES['image']['tmp_name'];
+                    $file_name = basename($_FILES['image']['name']);
+                    $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
+                    
+                    $unique_name = 'gallery_' . time() . '_' . $file_name;
+                    $dest_path = $upload_dir . $unique_name;
+
+                    if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
+                        $image_url = $dest_path;
+                        $sql = "INSERT INTO gallery (title, image_url, description) VALUES ('$title', '$image_url', '$description')";
+                        if ($conn->query($sql) === TRUE) {
+                            echo json_encode(["status" => "success", "message" => "Gallery item added successfully", "id" => $conn->insert_id]);
+                        } else {
+                            echo json_encode(["status" => "error", "message" => "Error adding gallery item: " . $conn->error]);
+                        }
+                    } else {
+                        echo json_encode(["status" => "error", "message" => "Failed to save gallery image."]);
+                    }
+                } else {
+                    echo json_encode(["status" => "error", "message" => "Image upload failed."]);
+                }
             }
         }
         break;
 
     case 'DELETE':
-        // Delete download (using query param ?id=X)
+        // Delete gallery item
         if (!isset($_GET['id'])) {
-             echo json_encode(["status" => "error", "message" => "Missing download ID"]);
+             echo json_encode(["status" => "error", "message" => "Missing item ID"]);
              exit;
         }
         $id = intval($_GET['id']);
-        
-        // Find file path to delete from disk
-        $sql = "SELECT file_url FROM downloads WHERE id = $id";
+
+        // Remove image file from disk
+        $sql = "SELECT image_url FROM gallery WHERE id = $id";
         $result = $conn->query($sql);
         if ($result && $result->num_rows > 0) {
             $row = $result->fetch_assoc();
-            $file_url = $row['file_url'];
-            
-            // Delete physical file if it exists and is in the uploads directory
-            if ($file_url !== '#' && file_exists($file_url) && strpos($file_url, 'uploads/') === 0) {
-                @unlink($file_url);
+            $image_url = $row['image_url'];
+            if ($image_url && file_exists($image_url) && strpos($image_url, 'uploads/') === 0) {
+                @unlink($image_url);
             }
         }
 
-        $sql = "DELETE FROM downloads WHERE id = $id";
+        $sql = "DELETE FROM gallery WHERE id = $id";
         if ($conn->query($sql) === TRUE) {
-            echo json_encode(["status" => "success", "message" => "Document deleted successfully"]);
+            echo json_encode(["status" => "success", "message" => "Gallery item deleted successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting document: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error deleting item: " . $conn->error]);
         }
         break;
 
     default:
         echo json_encode(["status" => "error", "message" => "Method not allowed"]);
         break;
-}
-
-// Helper function to safely move uploaded files
-function move_uploaded_path($tmp, $dest) {
-    // Under regular server context, use move_uploaded_file
-    if (is_uploaded_file($tmp)) {
-        return move_uploaded_file($tmp, $dest);
-    }
-    // Under CLI/Testing context, copy is acceptable
-    return copy($tmp, $dest);
 }
 
 if ($conn) $conn->close();

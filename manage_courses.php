@@ -11,56 +11,54 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        $sql = "SELECT id, title_en, title_si, title_ta, description_en, description_si, description_ta, icon_class FROM achievements ORDER BY id DESC";
+        $sql = "SELECT id, category, title, event_date, location, icon_class, url FROM courses_events ORDER BY event_date DESC, id DESC";
         $result = $conn->query($sql);
-        $achievements = [];
+        $courses = [];
         if ($result) {
             while ($row = $result->fetch_assoc()) {
-                $achievements[] = $row;
+                $courses[] = $row;
             }
         }
-        echo json_encode(["status" => "success", "achievements" => $achievements]);
+        echo json_encode(["status" => "success", "courses" => $courses]);
         break;
 
     case 'POST':
-        if (!isset($_POST['title_en']) || !isset($_POST['description_en'])) {
-            echo json_encode(["status" => "error", "message" => "Missing required fields (title_en, description_en)"]);
+        if (!isset($_POST['category']) || !isset($_POST['title']) || !isset($_POST['location'])) {
+            echo json_encode(["status" => "error", "message" => "Missing required fields (category, title, location)"]);
             exit;
         }
 
         $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
-        $title_en = $conn->real_escape_string($_POST['title_en']);
-        $title_si = isset($_POST['title_si']) ? $conn->real_escape_string($_POST['title_si']) : '';
-        $title_ta = isset($_POST['title_ta']) ? $conn->real_escape_string($_POST['title_ta']) : '';
-        $description_en = $conn->real_escape_string($_POST['description_en']);
-        $description_si = isset($_POST['description_si']) ? $conn->real_escape_string($_POST['description_si']) : '';
-        $description_ta = isset($_POST['description_ta']) ? $conn->real_escape_string($_POST['description_ta']) : '';
-        $icon_class = isset($_POST['icon_class']) && !empty($_POST['icon_class']) ? $conn->real_escape_string($_POST['icon_class']) : 'fa-trophy';
+        $category = $conn->real_escape_string($_POST['category']);
+        $title = $conn->real_escape_string($_POST['title']);
+        $location = $conn->real_escape_string($_POST['location']);
+        $event_date = isset($_POST['event_date']) && !empty($_POST['event_date']) ? $conn->real_escape_string($_POST['event_date']) : date('Y-m-d');
+        $icon_class = isset($_POST['icon_class']) && !empty($_POST['icon_class']) ? $conn->real_escape_string($_POST['icon_class']) : 'fa-graduation-cap';
+        $url = isset($_POST['url']) && !empty($_POST['url']) ? $conn->real_escape_string($_POST['url']) : '#';
 
         if ($id > 0) {
-            // Update existing achievement
-            $sql = "UPDATE achievements SET 
-                    title_en = '$title_en', 
-                    title_si = '$title_si', 
-                    title_ta = '$title_ta', 
-                    description_en = '$description_en', 
-                    description_si = '$description_si', 
-                    description_ta = '$description_ta', 
-                    icon_class = '$icon_class' 
+            // Update existing course/event
+            $sql = "UPDATE courses_events SET 
+                        category = '$category', 
+                        title = '$title', 
+                        location = '$location', 
+                        event_date = '$event_date', 
+                        icon_class = '$icon_class', 
+                        url = '$url' 
                     WHERE id = $id";
             if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "Achievement updated successfully", "id" => $id]);
+                echo json_encode(["status" => "success", "message" => "Course/Event updated successfully", "id" => $id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error updating achievement: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error updating course/event: " . $conn->error]);
             }
         } else {
-            // Insert new achievement
-            $sql = "INSERT INTO achievements (title_en, title_si, title_ta, description_en, description_si, description_ta, icon_class) 
-                    VALUES ('$title_en', '$title_si', '$title_ta', '$description_en', '$description_si', '$description_ta', '$icon_class')";
+            // Insert new course/event
+            $sql = "INSERT INTO courses_events (category, title, event_date, location, icon_class, url) 
+                    VALUES ('$category', '$title', '$event_date', '$location', '$icon_class', '$url')";
             if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "Achievement added successfully", "id" => $conn->insert_id]);
+                echo json_encode(["status" => "success", "message" => "Course/Event added successfully", "id" => $conn->insert_id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error adding achievement: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error adding course/event: " . $conn->error]);
             }
         }
         break;
@@ -71,11 +69,11 @@ switch ($method) {
              exit;
         }
         $id = intval($_GET['id']);
-        $sql = "DELETE FROM achievements WHERE id = $id";
+        $sql = "DELETE FROM courses_events WHERE id = $id";
         if ($conn->query($sql) === TRUE) {
-            echo json_encode(["status" => "success", "message" => "Achievement deleted successfully"]);
+            echo json_encode(["status" => "success", "message" => "Course/Event deleted successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting achievement: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error deleting course/event: " . $conn->error]);
         }
         break;
 

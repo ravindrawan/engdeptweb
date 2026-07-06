@@ -12,115 +12,104 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // List procurements
-        $sql = "SELECT id, title, publish_date, file_url, status FROM procurements ORDER BY publish_date DESC, id DESC";
+        // List RTI officers
+        $sql = "SELECT id, role_type, name_en, name_si, name_ta, designation_en, designation_si, designation_ta, phone, email, address_en, address_si, address_ta FROM rti_officers ORDER BY role_type ASC, id ASC";
         $result = $conn->query($sql);
-        $procurements = [];
+        $officers = [];
         if ($result) {
             while ($row = $result->fetch_assoc()) {
-                $procurements[] = $row;
+                $officers[] = $row;
             }
+            echo json_encode(["status" => "success", "officers" => $officers]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "Database Query Error: " . $conn->error]);
         }
-        echo json_encode(["status" => "success", "procurements" => $procurements]);
         break;
 
     case 'POST':
-        // Add or Update procurement notice
-        if (!isset($_POST['title'])) {
-            echo json_encode(["status" => "error", "message" => "Missing title"]);
+        // Add or Update RTI officer
+        if (!isset($_POST['role_type']) || !isset($_POST['name_en']) || !isset($_POST['designation_en']) || !isset($_POST['phone']) || !isset($_POST['email'])) {
+            echo json_encode(["status" => "error", "message" => "Missing required fields (role_type, name_en, designation_en, phone, email)"]);
             exit;
         }
-
+        
         $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
-        $title = $conn->real_escape_string($_POST['title']);
-        $status = isset($_POST['status']) ? $conn->real_escape_string($_POST['status']) : 'active';
-        $file_url = null;
-
-        // Check file upload
-        if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
-            $file_tmp = $_FILES['file']['tmp_name'];
-            $file_name = basename($_FILES['file']['name']);
-            // Sanitize file name
-            $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
-            
-            $upload_dir = 'uploads/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            $unique_name = 'tender_' . time() . '_' . $file_name;
-            $dest_path = $upload_dir . $unique_name;
-
-            // Use copy/move_uploaded_file helper logic
-            if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
-                $file_url = $dest_path;
-
-                // Delete old file from disk if we are updating
-                if ($id > 0) {
-                    $old_res = $conn->query("SELECT file_url FROM procurements WHERE id = $id");
-                    if ($old_res && $old_row = $old_res->fetch_assoc()) {
-                        $old_file = $old_row['file_url'];
-                        if ($old_file && $old_file !== '#' && file_exists($old_file) && strpos($old_file, 'uploads/') === 0) {
-                            @unlink($old_file);
-                        }
-                    }
-                }
-            } else {
-                echo json_encode(["status" => "error", "message" => "Failed to save tender file."]);
-                exit;
-            }
-        }
+        $role_type = $conn->real_escape_string($_POST['role_type']);
+        $name_en = $conn->real_escape_string($_POST['name_en']);
+        $name_si = isset($_POST['name_si']) && !empty($_POST['name_si']) ? $conn->real_escape_string($_POST['name_si']) : null;
+        $name_ta = isset($_POST['name_ta']) && !empty($_POST['name_ta']) ? $conn->real_escape_string($_POST['name_ta']) : null;
+        
+        $designation_en = $conn->real_escape_string($_POST['designation_en']);
+        $designation_si = isset($_POST['designation_si']) && !empty($_POST['designation_si']) ? $conn->real_escape_string($_POST['designation_si']) : null;
+        $designation_ta = isset($_POST['designation_ta']) && !empty($_POST['designation_ta']) ? $conn->real_escape_string($_POST['designation_ta']) : null;
+        
+        $phone = $conn->real_escape_string($_POST['phone']);
+        $email = $conn->real_escape_string($_POST['email']);
+        
+        $address_en = isset($_POST['address_en']) && !empty($_POST['address_en']) ? $conn->real_escape_string($_POST['address_en']) : null;
+        $address_si = isset($_POST['address_si']) && !empty($_POST['address_si']) ? $conn->real_escape_string($_POST['address_si']) : null;
+        $address_ta = isset($_POST['address_ta']) && !empty($_POST['address_ta']) ? $conn->real_escape_string($_POST['address_ta']) : null;
 
         if ($id > 0) {
-            // Update existing notice
-            $sql = "UPDATE procurements SET title = '$title', status = '$status'";
-            if ($file_url !== null) {
-                $sql .= ", file_url = '$file_url'";
-            }
-            $sql .= " WHERE id = $id";
+            // Update existing RTI officer
+            $sql = "UPDATE rti_officers SET 
+                        role_type = '$role_type', 
+                        name_en = '$name_en', 
+                        name_si = " . ($name_si ? "'$name_si'" : "NULL") . ", 
+                        name_ta = " . ($name_ta ? "'$name_ta'" : "NULL") . ", 
+                        designation_en = '$designation_en', 
+                        designation_si = " . ($designation_si ? "'$designation_si'" : "NULL") . ", 
+                        designation_ta = " . ($designation_ta ? "'$designation_ta'" : "NULL") . ", 
+                        phone = '$phone', 
+                        email = '$email', 
+                        address_en = " . ($address_en ? "'$address_en'" : "NULL") . ", 
+                        address_si = " . ($address_si ? "'$address_si'" : "NULL") . ", 
+                        address_ta = " . ($address_ta ? "'$address_ta'" : "NULL") . " 
+                    WHERE id = $id";
 
             if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "Procurement notice updated successfully", "id" => $id]);
+                echo json_encode(["status" => "success", "message" => "RTI Officer updated successfully", "id" => $id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error updating notice: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error updating RTI officer: " . $conn->error]);
             }
         } else {
-            // Insert new notice
-            $publish_date = date('Y-m-d');
-            $final_file_url = ($file_url !== null) ? $file_url : '#';
-            $sql = "INSERT INTO procurements (title, publish_date, file_url, status) VALUES ('$title', '$publish_date', '$final_file_url', '$status')";
+            // Insert new RTI officer
+            $sql = "INSERT INTO rti_officers (role_type, name_en, name_si, name_ta, designation_en, designation_si, designation_ta, phone, email, address_en, address_si, address_ta) 
+                    VALUES (
+                        '$role_type', 
+                        '$name_en', 
+                        " . ($name_si ? "'$name_si'" : "NULL") . ", 
+                        " . ($name_ta ? "'$name_ta'" : "NULL") . ", 
+                        '$designation_en', 
+                        " . ($designation_si ? "'$designation_si'" : "NULL") . ", 
+                        " . ($designation_ta ? "'$designation_ta'" : "NULL") . ", 
+                        '$phone', 
+                        '$email', 
+                        " . ($address_en ? "'$address_en'" : "NULL") . ", 
+                        " . ($address_si ? "'$address_si'" : "NULL") . ", 
+                        " . ($address_ta ? "'$address_ta'" : "NULL") . "
+                    )";
             if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "Procurement notice added successfully", "id" => $conn->insert_id]);
+                echo json_encode(["status" => "success", "message" => "RTI Officer added successfully", "id" => $conn->insert_id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error adding notice: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error adding RTI officer: " . $conn->error]);
             }
         }
         break;
 
     case 'DELETE':
-        // Delete procurement notice
+        // Delete RTI officer (using query param ?id=X)
         if (!isset($_GET['id'])) {
-             echo json_encode(["status" => "error", "message" => "Missing notice ID"]);
+             echo json_encode(["status" => "error", "message" => "Missing officer ID"]);
              exit;
         }
         $id = intval($_GET['id']);
 
-        // Remove file from disk
-        $sql = "SELECT file_url FROM procurements WHERE id = $id";
-        $result = $conn->query($sql);
-        if ($result && $result->num_rows > 0) {
-            $row = $result->fetch_assoc();
-            $file_url = $row['file_url'];
-            if ($file_url !== '#' && file_exists($file_url) && strpos($file_url, 'uploads/') === 0) {
-                @unlink($file_url);
-            }
-        }
-
-        $sql = "DELETE FROM procurements WHERE id = $id";
+        $sql = "DELETE FROM rti_officers WHERE id = $id";
         if ($conn->query($sql) === TRUE) {
-            echo json_encode(["status" => "success", "message" => "Procurement notice deleted successfully"]);
+            echo json_encode(["status" => "success", "message" => "RTI Officer deleted successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting notice: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error deleting RTI officer: " . $conn->error]);
         }
         break;
 

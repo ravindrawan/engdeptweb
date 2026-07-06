@@ -1,132 +1,52 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1
--- Generation Time: May 06, 2026 at 06:23 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+using System;
+using System.Drawing;
+using System.IO;
+using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
+using Windows.Media.Ocr;
+using Windows.Storage;
+using Windows.Storage.Streams;
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
+class Program
+{
+    static void Main(string[] args)
+    {
+        RunOcr().Wait();
+    }
 
+    static async Task RunOcr()
+    {
+        try
+        {
+            string brainDir = @"C:\Users\Imalee Livera\.gemini\antigravity-ide\brain\5c06bf1b-987d-4ab2-b4db-c3e6298f4785";
+            OcrEngine engine = OcrEngine.TryCreateFromUserProfileLanguages();
+            if (engine == null)
+            {
+                Console.WriteLine("Could not create OCR engine.");
+                return;
+            }
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
+            string[] files = Directory.GetFiles(brainDir, "media__1779874*.png");
+            foreach (string file in files)
+            {
+                Console.WriteLine("========================================");
+                Console.WriteLine("FILE: " + Path.GetFileName(file));
+                Console.WriteLine("========================================");
 
---
--- Database: `nwp_engineering_portal`
---
-
--- --------------------------------------------------------
-
---
--- Table structure for table `downloads`
---
-
-CREATE TABLE `downloads` (
-  `id` int(11) NOT NULL,
-  `title` varchar(150) NOT NULL,
-  `description` text DEFAULT NULL,
-  `category` varchar(50) DEFAULT NULL,
-  `file_url` varchar(255) DEFAULT NULL,
-  `icon_class` varchar(50) DEFAULT 'fa-file-alt'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
--- --------------------------------------------------------
-
---
--- Table structure for table `officers`
---
-
-CREATE TABLE `officers` (
-  `id` int(11) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  `title` varchar(100) DEFAULT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `category` enum('executive','admin','technical','div') NOT NULL,
-  `division` varchar(50) DEFAULT NULL,
-  `photo_url` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `officers`
---
-
-INSERT INTO `officers` (`id`, `name`, `title`, `phone`, `category`, `division`, `photo_url`) VALUES
-(1, 'Eng. A. Kumara', 'Provincial Director', '+94 37 222 4501', 'executive', 'Head Office', NULL),
-(2, 'Mr. S. Perera', 'Chief Assistant', '+94 37 222 4505', 'admin', 'Head Office', NULL);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `username` varchar(50) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `full_name` varchar(100) DEFAULT NULL,
-  `role` enum('admin','user','staff') DEFAULT 'user',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `username`, `password`, `full_name`, `role`, `created_at`) VALUES
-(1, 'admin', 'admin123', 'System Administrator', 'admin', '2026-05-04 09:30:21');
-
---
--- Indexes for dumped tables
---
-
---
--- Indexes for table `downloads`
---
-ALTER TABLE `downloads`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `officers`
---
-ALTER TABLE `officers`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `downloads`
---
-ALTER TABLE `downloads`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `officers`
---
-ALTER TABLE `officers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT for table `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+                StorageFile storageFile = await StorageFile.GetFileFromPathAsync(file);
+                using (IRandomAccessStream stream = await storageFile.OpenReadAsync())
+                {
+                    BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
+                    SoftwareBitmap bitmap = await decoder.GetSoftwareBitmapAsync();
+                    OcrResult result = await engine.RecognizeAsync(bitmap);
+                    Console.WriteLine(result.Text);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error: " + ex.Message);
+            Console.WriteLine(ex.StackTrace);
+        }
+    }
+}

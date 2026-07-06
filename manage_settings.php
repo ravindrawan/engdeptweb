@@ -1,5 +1,5 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 require_once 'db_config.php';
 
 // Check if database connected successfully
@@ -8,315 +8,225 @@ if (isset($db_connection_error) && $db_connection_error !== null) {
     exit;
 }
 
-// Helper to handle multiple uploads
-function uploadMultipleFiles($file_input, $prefix, $upload_dir, $id, $conn, $column_name) {
-    if (!isset($_FILES[$file_input])) {
-        return null;
-    }
-    
-    $paths = [];
-    $errors = $_FILES[$file_input]['error'];
-    
-    if (is_array($errors)) {
-        // Multiple files uploaded
-        foreach ($errors as $index => $error) {
-            if ($error === UPLOAD_ERR_OK) {
-                $file_tmp = $_FILES[$file_input]['tmp_name'][$index];
-                $file_name = basename($_FILES[$file_input]['name'][$index]);
-                $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
-                $unique_name = $prefix . '_' . time() . '_' . $index . '_' . $file_name;
-                $dest_path = $upload_dir . $unique_name;
-                if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
-                    $paths[] = $dest_path;
-                }
-            }
-        }
-    } else {
-        // Single file uploaded
-        if ($errors === UPLOAD_ERR_OK) {
-            $file_tmp = $_FILES[$file_input]['tmp_name'];
-            $file_name = basename($_FILES[$file_input]['name']);
-            $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
-            $unique_name = $prefix . '_' . time() . '_' . $file_name;
-            $dest_path = $upload_dir . $unique_name;
-            if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
-                $paths[] = $dest_path;
-            }
-        }
-    }
-    
-    if (empty($paths)) {
-        return null;
-    }
-    
-    // Clean up old files on update
-    if ($id > 0 && $conn) {
-        $old_res = $conn->query("SELECT $column_name FROM projects WHERE id = $id");
-        if ($old_res && $old_row = $old_res->fetch_assoc()) {
-            $old_val = $old_row[$column_name];
-            if ($old_val) {
-                $old_paths = json_decode($old_val, true);
-                if (is_array($old_paths)) {
-                    foreach ($old_paths as $old_path) {
-                        if ($old_path && file_exists($old_path) && strpos($old_path, 'uploads/') === 0) {
-                            @unlink($old_path);
-                        }
-                    }
-                } else {
-                    if (file_exists($old_val) && strpos($old_val, 'uploads/') === 0) {
-                        @unlink($old_val);
-                    }
-                }
-            }
-        }
-    }
-    
-    return json_encode($paths);
-}
-
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // List projects
-        $sql = "SELECT id, category, title_en, title_si, title_ta, description_en, description_si, description_ta, image_url, image_before, image_after, financial_details, gallery_type FROM projects ORDER BY id DESC";
+        if (isset($_GET['increment']) && $_GET['increment'] === '1') {
+            // First check if the row exists, if not insert it
+            $conn->query("INSERT IGNORE INTO site_sections (section_key, content_en, content_si, content_ta) VALUES ('visitor_count', '1458', '1458', '1458')");
+            // Increment the counter
+            $conn->query("UPDATE site_sections SET content_en = content_en + 1, content_si = content_si + 1, content_ta = content_ta + 1 WHERE section_key = 'visitor_count'");
+        }
+        // Retrieve all site settings / sections
+        $sql = "SELECT section_key, content_en, content_si, content_ta FROM site_sections";
         $result = $conn->query($sql);
-        $projects = [];
+        $settings = [];
         if ($result) {
             while ($row = $result->fetch_assoc()) {
-                $projects[] = $row;
+                $settings[$row['section_key']] = [
+                    'en' => $row['content_en'],
+                    'si' => $row['content_si'],
+                    'ta' => $row['content_ta']
+                ];
             }
         }
-        echo json_encode(["status" => "success", "projects" => $projects]);
+        echo json_encode(["status" => "success", "settings" => $settings], JSON_UNESCAPED_UNICODE);
         break;
 
     case 'POST':
-        // Add or Update project
-        if (!isset($_POST['category']) || !isset($_POST['title_en']) || !isset($_POST['description_en'])) {
-            echo json_encode(["status" => "error", "message" => "Missing required fields (category, title_en, description_en)"]);
+        // Add or update a setting
+        if (!isset($_POST['section_key'])) {
+            echo json_encode(["status" => "error", "message" => "Missing section_key"]);
             exit;
         }
 
-        $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
-        $category = $conn->real_escape_string($_POST['category']);
-        $title_en = $conn->real_escape_string($_POST['title_en']);
-        $title_si = isset($_POST['title_si']) ? $conn->real_escape_string($_POST['title_si']) : '';
-        $title_ta = isset($_POST['title_ta']) ? $conn->real_escape_string($_POST['title_ta']) : '';
-        $description_en = $conn->real_escape_string($_POST['description_en']);
-        $description_si = isset($_POST['description_si']) ? $conn->real_escape_string($_POST['description_si']) : '';
-        $description_ta = isset($_POST['description_ta']) ? $conn->real_escape_string($_POST['description_ta']) : '';
-        $financial_details = isset($_POST['financial_details']) ? $conn->real_escape_string($_POST['financial_details']) : '';
-        $gallery_type = isset($_POST['gallery_type']) && !empty($_POST['gallery_type']) ? $conn->real_escape_string($_POST['gallery_type']) : 'none';
-        
-        $existing_images = [];
-        if ($id > 0) {
-            $old_res = $conn->query("SELECT image_url FROM projects WHERE id = $id");
-            if ($old_res && $old_row = $old_res->fetch_assoc()) {
-                $old_img_url = $old_row['image_url'];
-                if ($old_img_url) {
-                    if (strpos($old_img_url, '[') === 0) {
-                        $existing_images = json_decode($old_img_url, true) ?: [];
-                    } else {
-                        $existing_images = array_filter(explode(',', $old_img_url));
-                    }
-                }
-            }
-        }
+        $section_key = $conn->real_escape_string($_POST['section_key']);
 
-        $files_changed = false;
-
-        // Support multiple image files (up to 4) - Main Cover images
-        if (isset($_FILES['images']) && is_array($_FILES['images']['error'])) {
-            $file_count = count($_FILES['images']['error']);
-            $new_images = [];
+        if ($section_key === 'rti_application_form') {
+            // Retrieve current values to retain old values if no file is uploaded
+            $res = $conn->query("SELECT content_en, content_si, content_ta FROM site_sections WHERE section_key = 'rti_application_form'");
+            $current = $res ? $res->fetch_assoc() : null;
             
-            for ($i = 0; $i < $file_count; $i++) {
-                if ($_FILES['images']['error'][$i] === UPLOAD_ERR_OK) {
-                    $file_tmp = $_FILES['images']['tmp_name'][$i];
-                    $file_name = basename($_FILES['images']['name'][$i]);
-                    // Sanitize file name
-                    $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
-
-                    $upload_dir = 'uploads/';
-                    if (!is_dir($upload_dir)) {
-                        mkdir($upload_dir, 0755, true);
-                    }
-
-                    $unique_name = 'project_' . time() . '_' . $i . '_' . $file_name;
-                    $dest_path = $upload_dir . $unique_name;
-
-                    if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
-                        $new_images[] = $dest_path;
-                    }
-                }
-            }
-            
-            if (!empty($new_images)) {
-                $files_changed = true;
-                // Delete old files from disk
-                foreach ($existing_images as $old_img) {
-                    if ($old_img && $old_img !== '#' && file_exists($old_img) && strpos($old_img, 'uploads/') === 0) {
-                        @unlink($old_img);
-                    }
-                }
-                $existing_images = $new_images;
-            }
-        } elseif (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-            // Legacy single file support
-            $file_tmp = $_FILES['image']['tmp_name'];
-            $file_name = basename($_FILES['image']['name']);
-            $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
+            $file_en = $current ? $current['content_en'] : '#';
+            $file_si = $current ? $current['content_si'] : '#';
+            $file_ta = $current ? $current['content_ta'] : '#';
 
             $upload_dir = 'uploads/';
             if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            $unique_name = 'project_' . time() . '_' . $file_name;
-            $dest_path = $upload_dir . $unique_name;
-
-            if (is_uploaded_file($file_tmp) ? move_uploaded_file($file_tmp, $dest_path) : copy($file_tmp, $dest_path)) {
-                $files_changed = true;
-                // Delete old files from disk
-                foreach ($existing_images as $old_img) {
-                    if ($old_img && $old_img !== '#' && file_exists($old_img) && strpos($old_img, 'uploads/') === 0) {
-                        @unlink($old_img);
-                    }
+                if (!@mkdir($upload_dir, 0775, true)) {
+                    echo json_encode(["status" => "error", "message" => "Uploads directory cannot be created."]);
+                    exit;
                 }
-                $existing_images = [$dest_path];
             }
-        }
 
-        $image_url_str = !empty($existing_images) ? json_encode($existing_images) : null;
-
-        $upload_dir = 'uploads/';
-        // Image upload: Before (used for both Renovation Before and Event photos)
-        $image_before = uploadMultipleFiles('image_before', 'proj_before', $upload_dir, $id, $conn, 'image_before');
-
-        // Image upload: After
-        $image_after = uploadMultipleFiles('image_after', 'proj_after', $upload_dir, $id, $conn, 'image_after');
-
-        if ($id > 0) {
-            // Update existing project
-            $sql = "UPDATE projects SET 
-                        category = '$category', 
-                        title_en = '$title_en', 
-                        title_si = '$title_si', 
-                        title_ta = '$title_ta', 
-                        description_en = '$description_en', 
-                        description_si = '$description_si', 
-                        description_ta = '$description_ta', 
-                        financial_details = '$financial_details',
-                        gallery_type = '$gallery_type'";
-            
-            if ($files_changed || !empty($existing_images)) {
-                $sql .= ", image_url = " . ($image_url_str ? "'$image_url_str'" : "NULL");
-            }
-            if ($image_before !== null) {
-                $sql .= ", image_before = '$image_before'";
-            }
-            if ($image_after !== null) {
-                $sql .= ", image_after = '$image_after'";
-            }
-            
-            // Clean up files based on gallery_type constraints
-            if ($gallery_type === 'event') {
-                $old_res = $conn->query("SELECT image_after FROM projects WHERE id = $id");
-                if ($old_res && $old_row = $old_res->fetch_assoc()) {
-                    $old_after = $old_row['image_after'];
-                    if ($old_after) {
-                        $old_paths = json_decode($old_after, true);
-                        if (is_array($old_paths)) {
-                            foreach ($old_paths as $old_path) {
-                                if ($old_path && file_exists($old_path) && strpos($old_path, 'uploads/') === 0) {
-                                    @unlink($old_path);
-                                }
-                            }
-                        }
-                    }
-                }
-                $sql .= ", image_after = NULL";
-            } elseif ($gallery_type === 'none') {
-                $old_res = $conn->query("SELECT image_before, image_after FROM projects WHERE id = $id");
-                if ($old_res && $old_row = $old_res->fetch_assoc()) {
-                    foreach (['image_before', 'image_after'] as $col) {
-                        $old_val = $old_row[$col];
-                        if ($old_val) {
-                            $old_paths = json_decode($old_val, true);
-                            if (is_array($old_paths)) {
-                                foreach ($old_paths as $old_path) {
-                                    if ($old_path && file_exists($old_path) && strpos($old_path, 'uploads/') === 0) {
-                                        @unlink($old_path);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                $sql .= ", image_before = NULL, image_after = NULL";
-            }
-            
-            $sql .= " WHERE id = $id";
-
-            if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "Project updated successfully", "id" => $id]);
-            } else {
-                echo json_encode(["status" => "error", "message" => "Error updating project: " . $conn->error]);
-            }
-        } else {
-            // Insert new project
-            $sql = "INSERT INTO projects (category, title_en, title_si, title_ta, description_en, description_si, description_ta, image_url, financial_details, image_before, image_after, gallery_type) 
-                    VALUES ('$category', '$title_en', '$title_si', '$title_ta', '$description_en', '$description_si', '$description_ta', 
-                            " . ($image_url_str ? "'$image_url_str'" : "NULL") . ", 
-                            '$financial_details',
-                            " . (($gallery_type !== 'none' && $image_before) ? "'$image_before'" : "NULL") . ", 
-                            " . (($gallery_type === 'renovation' && $image_after) ? "'$image_after'" : "NULL") . ", 
-                            '$gallery_type')";
+            // Function to handle single file upload
+            $upload_file = function($file_key, $prefix) use ($upload_dir) {
+                if (isset($_FILES[$file_key]) && $_FILES[$file_key]['error'] === UPLOAD_ERR_OK) {
+                    $file_tmp = $_FILES[$file_key]['tmp_name'];
+                    $file_name = basename($_FILES[$file_key]['name']);
+                    $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
                     
-            if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "Project added successfully", "id" => $conn->insert_id]);
-            } else {
-                echo json_encode(["status" => "error", "message" => "Error adding project: " . $conn->error]);
-            }
-        }
-        break;
-
-    case 'DELETE':
-        // Delete project
-        if (!isset($_GET['id'])) {
-             echo json_encode(["status" => "error", "message" => "Missing project ID"]);
-             exit;
-        }
-        $id = intval($_GET['id']);
-
-        // Remove all image files associated with the project from disk
-        $sql = "SELECT image_url, image_before, image_after FROM projects WHERE id = $id";
-        $result = $conn->query($sql);
-        if ($result && $result->num_rows > 0) {
-            $row = $result->fetch_assoc();
-            foreach (['image_url', 'image_before', 'image_after'] as $col) {
-                $file_val = $row[$col];
-                if ($file_val) {
-                    $images = [];
-                    if (strpos($file_val, '[') === 0) {
-                        $images = json_decode($file_val, true) ?: [];
-                    } else {
-                        $images = array_filter(explode(',', $file_val));
-                    }
-                    foreach ($images as $img) {
-                        if ($img && file_exists($img) && strpos($img, 'uploads/') === 0) {
-                            @unlink($img);
-                        }
+                    $unique_name = $prefix . '_' . time() . '_' . $file_name;
+                    $dest_path = $upload_dir . $unique_name;
+                    
+                    if (move_uploaded_file($file_tmp, $dest_path)) {
+                        return $dest_path;
                     }
                 }
+                return null;
+            };
+
+            // Process uploads and delete old files if updated
+            $new_en = $upload_file('rti_file_en', 'rti_en');
+            if ($new_en !== null) {
+                if ($file_en && $file_en !== '#' && file_exists($file_en) && strpos($file_en, 'uploads/') === 0) {
+                    @unlink($file_en);
+                }
+                $file_en = $new_en;
             }
+
+            $new_si = $upload_file('rti_file_si', 'rti_si');
+            if ($new_si !== null) {
+                if ($file_si && $file_si !== '#' && file_exists($file_si) && strpos($file_si, 'uploads/') === 0) {
+                    @unlink($file_si);
+                }
+                $file_si = $new_si;
+            }
+
+            $new_ta = $upload_file('rti_file_ta', 'rti_ta');
+            if ($new_ta !== null) {
+                if ($file_ta && $file_ta !== '#' && file_exists($file_ta) && strpos($file_ta, 'uploads/') === 0) {
+                    @unlink($file_ta);
+                }
+                $file_ta = $new_ta;
+            }
+
+            // Also check if any form requests removal
+            if (isset($_POST['remove_rti_en']) && $_POST['remove_rti_en'] === '1') {
+                if ($file_en && $file_en !== '#' && file_exists($file_en) && strpos($file_en, 'uploads/') === 0) {
+                    @unlink($file_en);
+                }
+                $file_en = '#';
+            }
+            if (isset($_POST['remove_rti_si']) && $_POST['remove_rti_si'] === '1') {
+                if ($file_si && $file_si !== '#' && file_exists($file_si) && strpos($file_si, 'uploads/') === 0) {
+                    @unlink($file_si);
+                }
+                $file_si = '#';
+            }
+            if (isset($_POST['remove_rti_ta']) && $_POST['remove_rti_ta'] === '1') {
+                if ($file_ta && $file_ta !== '#' && file_exists($file_ta) && strpos($file_ta, 'uploads/') === 0) {
+                    @unlink($file_ta);
+                }
+                $file_ta = '#';
+            }
+
+            $sql = "INSERT INTO site_sections (section_key, content_en, content_si, content_ta) 
+                    VALUES ('rti_application_form', '$file_en', '$file_si', '$file_ta') 
+                    ON DUPLICATE KEY UPDATE content_en = '$file_en', content_si = '$file_si', content_ta = '$file_ta'";
+            
+            if ($conn->query($sql) === TRUE) {
+                echo json_encode([
+                    "status" => "success", 
+                    "message" => "RTI application files updated successfully",
+                    "rti_application_form" => [
+                        "en" => $file_en,
+                        "si" => $file_si,
+                        "ta" => $file_ta
+                    ]
+                ]);
+            } else {
+                echo json_encode(["status" => "error", "message" => "Error saving RTI files: " . $conn->error]);
+            }
+            exit;
         }
 
-        $sql = "DELETE FROM projects WHERE id = $id";
+        if ($section_key === 'home_banner_url') {
+            $banner_url = '';
+            
+            // If they want to remove banner
+            if (isset($_POST['remove_banner']) && $_POST['remove_banner'] === '1') {
+                // Delete old banner file
+                $old_res = $conn->query("SELECT content_en FROM site_sections WHERE section_key = 'home_banner_url'");
+                if ($old_res && $old_row = $old_res->fetch_assoc()) {
+                    $old_banner = $old_row['content_en'];
+                    if ($old_banner && file_exists($old_banner) && strpos($old_banner, 'uploads/') === 0) {
+                        @unlink($old_banner);
+                    }
+                }
+                $banner_url = '';
+            } elseif (isset($_FILES['banner']) && $_FILES['banner']['error'] === UPLOAD_ERR_OK) {
+                $file_tmp = $_FILES['banner']['tmp_name'];
+                $file_name = basename($_FILES['banner']['name']);
+                $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
+                
+                $upload_dir = 'uploads/';
+                if (!is_dir($upload_dir)) {
+                    if (!@mkdir($upload_dir, 0775, true)) {
+                        echo json_encode(["status" => "error", "message" => "Uploads directory 'uploads/' does not exist and cannot be created. Check permissions."]);
+                        exit;
+                    }
+                }
+                
+                if (!is_writable($upload_dir)) {
+                    echo json_encode(["status" => "error", "message" => "Uploads directory 'uploads/' is not writable. Please change folder permissions to chmod 775 or 777 on the server."]);
+                    exit;
+                }
+                
+                $unique_name = 'home_banner_' . time() . '_' . $file_name;
+                $dest_path = $upload_dir . $unique_name;
+                
+                if (move_uploaded_file($file_tmp, $dest_path)) {
+                    // Delete old banner if exists
+                    $old_res = $conn->query("SELECT content_en FROM site_sections WHERE section_key = 'home_banner_url'");
+                    if ($old_res && $old_row = $old_res->fetch_assoc()) {
+                        $old_banner = $old_row['content_en'];
+                        if ($old_banner && file_exists($old_banner) && strpos($old_banner, 'uploads/') === 0) {
+                            @unlink($old_banner);
+                        }
+                    }
+                    $banner_url = $dest_path;
+                } else {
+                    $error = error_get_last();
+                    $msg = "Failed to save home banner file.";
+                    if ($error && isset($error['message'])) {
+                        $msg .= " Details: " . $error['message'];
+                    }
+                    echo json_encode(["status" => "error", "message" => $msg]);
+                    exit;
+                }
+            } else {
+                // Keep old banner if no file uploaded and not removing
+                $old_res = $conn->query("SELECT content_en FROM site_sections WHERE section_key = 'home_banner_url'");
+                if ($old_res && $old_row = $old_res->fetch_assoc()) {
+                    $banner_url = $old_row['content_en'];
+                }
+            }
+            
+            $sql = "INSERT INTO site_sections (section_key, content_en, content_si, content_ta) 
+                    VALUES ('home_banner_url', '$banner_url', '$banner_url', '$banner_url') 
+                    ON DUPLICATE KEY UPDATE content_en = '$banner_url', content_si = '$banner_url', content_ta = '$banner_url'";
+            if ($conn->query($sql) === TRUE) {
+                echo json_encode(["status" => "success", "message" => "Home banner updated successfully", "banner_url" => $banner_url]);
+            } else {
+                echo json_encode(["status" => "error", "message" => "Error saving home banner: " . $conn->error]);
+            }
+            break;
+        }
+
+        $content_en = isset($_POST['content_en']) ? $conn->real_escape_string($_POST['content_en']) : '';
+        $content_si = isset($_POST['content_si']) ? $conn->real_escape_string($_POST['content_si']) : '';
+        $content_ta = isset($_POST['content_ta']) ? $conn->real_escape_string($_POST['content_ta']) : '';
+
+        $sql = "INSERT INTO site_sections (section_key, content_en, content_si, content_ta) 
+                VALUES ('$section_key', '$content_en', '$content_si', '$content_ta') 
+                ON DUPLICATE KEY UPDATE content_en = '$content_en', content_si = '$content_si', content_ta = '$content_ta'";
+                
         if ($conn->query($sql) === TRUE) {
-            echo json_encode(["status" => "success", "message" => "Project deleted successfully"]);
+            echo json_encode(["status" => "success", "message" => "Setting updated successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting project: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error updating setting: " . $conn->error]);
         }
         break;
 

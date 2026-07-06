@@ -2,40 +2,54 @@
 header('Content-Type: application/json');
 require_once 'db_config.php';
 
-// Check if database connected successfully
 if (isset($db_connection_error) && $db_connection_error !== null) {
-    echo json_encode([
-        "status" => "error", 
-        "message" => "Database Error: " . $db_connection_error . ". Please ensure MySQL is running and the 'nwp_engineering_portal' database exists."
-    ]);
+    echo json_encode(["error" => "Connection Error: " . $db_connection_error]);
     exit;
 }
 
-// Handle POST request
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $conn->real_escape_string($_POST['username']);
-    $password = $_POST['password'];
-
-    $sql = "SELECT id, username, full_name, role FROM users WHERE username = '$username' AND password = '$password'";
-    $result = $conn->query($sql);
-
-    if ($result && $result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        echo json_encode([
-            "status" => "success",
-            "user" => [
-                "username" => $user['username'],
-                "name" => $user['full_name'],
-                "role" => $user['role']
-            ]
-        ]);
-    } else {
-        echo json_encode(["status" => "error", "message" => "Invalid username or password. If you haven't set up the SQL database, please use the default local login."]);
+$tables = [];
+$result = $conn->query("SHOW TABLES");
+if ($result) {
+    while ($row = $result->fetch_row()) {
+        $tables[] = $row[0];
     }
-} else {
-    echo json_encode(["status" => "error", "message" => "Invalid request method"]);
 }
 
-if ($conn) $conn->close();
-?>
+$officers_columns = [];
+$officers_count = 0;
+$officers_sample = [];
+$query_error = null;
 
+if (in_array('officers', $tables)) {
+    $result = $conn->query("SHOW COLUMNS FROM officers");
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $officers_columns[] = $row;
+        }
+    }
+    
+    $result = $conn->query("SELECT COUNT(*) as count FROM officers");
+    if ($result) {
+        $row = $result->fetch_assoc();
+        $officers_count = intval($row['count']);
+    }
+    
+    $result = $conn->query("SELECT * FROM officers LIMIT 5");
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $officers_sample[] = $row;
+        }
+    } else {
+        $query_error = $conn->error;
+    }
+}
+
+echo json_encode([
+    "tables" => $tables,
+    "officers_exists" => in_array('officers', $tables),
+    "officers_columns" => $officers_columns,
+    "officers_count" => $officers_count,
+    "officers_sample" => $officers_sample,
+    "query_error" => $query_error
+], JSON_PRETTY_PRINT);
+?>

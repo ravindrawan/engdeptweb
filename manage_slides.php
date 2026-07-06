@@ -1,5 +1,5 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 require_once 'db_config.php';
 
 // Check if database connected successfully
@@ -12,109 +12,128 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // List RTI officers
-        $sql = "SELECT id, role_type, name_en, name_si, name_ta, designation_en, designation_si, designation_ta, phone, email, address_en, address_si, address_ta FROM rti_officers ORDER BY role_type ASC, id ASC";
+        // Retrieve all slideshow photos sorted by display_order
+        $sql = "SELECT id, image_url, display_order FROM slider_photos ORDER BY display_order ASC, id ASC";
         $result = $conn->query($sql);
-        $officers = [];
+        $slides = [];
         if ($result) {
             while ($row = $result->fetch_assoc()) {
-                $officers[] = $row;
+                $slides[] = $row;
             }
-            echo json_encode(["status" => "success", "officers" => $officers]);
-        } else {
-            echo json_encode(["status" => "error", "message" => "Database Query Error: " . $conn->error]);
         }
+        echo json_encode(["status" => "success", "slides" => $slides], JSON_UNESCAPED_UNICODE);
         break;
 
     case 'POST':
-        // Add or Update RTI officer
-        if (!isset($_POST['role_type']) || !isset($_POST['name_en']) || !isset($_POST['designation_en']) || !isset($_POST['phone']) || !isset($_POST['email'])) {
-            echo json_encode(["status" => "error", "message" => "Missing required fields (role_type, name_en, designation_en, phone, email)"]);
+        // Enforce maximum of 6 slides
+        $count_res = $conn->query("SELECT COUNT(*) as count FROM slider_photos");
+        if ($count_res) {
+            $count_row = $count_res->fetch_assoc();
+            if (intval($count_row['count']) >= 6) {
+                echo json_encode(["status" => "error", "message" => "Maximum of 6 slideshow photos allowed. Please delete an existing photo first."]);
+                exit;
+            }
+        }
+
+        // Upload and save slide
+        if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(["status" => "error", "message" => "Please select a valid image file to upload."]);
             exit;
         }
-        
-        $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
-        $role_type = $conn->real_escape_string($_POST['role_type']);
-        $name_en = $conn->real_escape_string($_POST['name_en']);
-        $name_si = isset($_POST['name_si']) && !empty($_POST['name_si']) ? $conn->real_escape_string($_POST['name_si']) : null;
-        $name_ta = isset($_POST['name_ta']) && !empty($_POST['name_ta']) ? $conn->real_escape_string($_POST['name_ta']) : null;
-        
-        $designation_en = $conn->real_escape_string($_POST['designation_en']);
-        $designation_si = isset($_POST['designation_si']) && !empty($_POST['designation_si']) ? $conn->real_escape_string($_POST['designation_si']) : null;
-        $designation_ta = isset($_POST['designation_ta']) && !empty($_POST['designation_ta']) ? $conn->real_escape_string($_POST['designation_ta']) : null;
-        
-        $phone = $conn->real_escape_string($_POST['phone']);
-        $email = $conn->real_escape_string($_POST['email']);
-        
-        $address_en = isset($_POST['address_en']) && !empty($_POST['address_en']) ? $conn->real_escape_string($_POST['address_en']) : null;
-        $address_si = isset($_POST['address_si']) && !empty($_POST['address_si']) ? $conn->real_escape_string($_POST['address_si']) : null;
-        $address_ta = isset($_POST['address_ta']) && !empty($_POST['address_ta']) ? $conn->real_escape_string($_POST['address_ta']) : null;
 
-        if ($id > 0) {
-            // Update existing RTI officer
-            $sql = "UPDATE rti_officers SET 
-                        role_type = '$role_type', 
-                        name_en = '$name_en', 
-                        name_si = " . ($name_si ? "'$name_si'" : "NULL") . ", 
-                        name_ta = " . ($name_ta ? "'$name_ta'" : "NULL") . ", 
-                        designation_en = '$designation_en', 
-                        designation_si = " . ($designation_si ? "'$designation_si'" : "NULL") . ", 
-                        designation_ta = " . ($designation_ta ? "'$designation_ta'" : "NULL") . ", 
-                        phone = '$phone', 
-                        email = '$email', 
-                        address_en = " . ($address_en ? "'$address_en'" : "NULL") . ", 
-                        address_si = " . ($address_si ? "'$address_si'" : "NULL") . ", 
-                        address_ta = " . ($address_ta ? "'$address_ta'" : "NULL") . " 
-                    WHERE id = $id";
+        $file_tmp = $_FILES['image']['tmp_name'];
+        $file_name = basename($_FILES['image']['name']);
+        $file_name = preg_replace("/[^a-zA-Z0-9\._-]/", "_", $file_name);
+        
+        // Validate it is an image
+        $image_info = @getimagesize($file_tmp);
+        if ($image_info === false) {
+            echo json_encode(["status" => "error", "message" => "Uploaded file is not a valid image."]);
+            exit;
+        }
 
+        $upload_dir = 'uploads/';
+        if (!is_dir($upload_dir)) {
+            if (!@mkdir($upload_dir, 0775, true)) {
+                echo json_encode(["status" => "error", "message" => "Uploads directory 'uploads/' does not exist and cannot be created. Check permissions."]);
+                exit;
+            }
+        }
+
+        if (!is_writable($upload_dir)) {
+            echo json_encode(["status" => "error", "message" => "Uploads directory 'uploads/' is not writable. Please change folder permissions to chmod 775 or 777 on the server."]);
+            exit;
+        }
+
+        $unique_name = 'slide_' . time() . '_' . $file_name;
+        $dest_path = $upload_dir . $unique_name;
+
+        if (move_uploaded_file($file_tmp, $dest_path)) {
+            // Find max display_order to append
+            $order_res = $conn->query("SELECT MAX(display_order) as max_order FROM slider_photos");
+            $max_order = 0;
+            if ($order_res && $row = $order_res->fetch_assoc()) {
+                $max_order = intval($row['max_order']);
+            }
+            $display_order = $max_order + 1;
+
+            $sql = "INSERT INTO slider_photos (image_url, display_order) VALUES ('$dest_path', $display_order)";
             if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "RTI Officer updated successfully", "id" => $id]);
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Slide uploaded successfully.",
+                    "slide" => [
+                        "id" => $conn->insert_id,
+                        "image_url" => $dest_path,
+                        "display_order" => $display_order
+                    ]
+                ]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error updating RTI officer: " . $conn->error]);
+                // Remove file if database insert failed
+                @unlink($dest_path);
+                echo json_encode(["status" => "error", "message" => "Database save failed: " . $conn->error]);
             }
         } else {
-            // Insert new RTI officer
-            $sql = "INSERT INTO rti_officers (role_type, name_en, name_si, name_ta, designation_en, designation_si, designation_ta, phone, email, address_en, address_si, address_ta) 
-                    VALUES (
-                        '$role_type', 
-                        '$name_en', 
-                        " . ($name_si ? "'$name_si'" : "NULL") . ", 
-                        " . ($name_ta ? "'$name_ta'" : "NULL") . ", 
-                        '$designation_en', 
-                        " . ($designation_si ? "'$designation_si'" : "NULL") . ", 
-                        " . ($designation_ta ? "'$designation_ta'" : "NULL") . ", 
-                        '$phone', 
-                        '$email', 
-                        " . ($address_en ? "'$address_en'" : "NULL") . ", 
-                        " . ($address_si ? "'$address_si'" : "NULL") . ", 
-                        " . ($address_ta ? "'$address_ta'" : "NULL") . "
-                    )";
-            if ($conn->query($sql) === TRUE) {
-                echo json_encode(["status" => "success", "message" => "RTI Officer added successfully", "id" => $conn->insert_id]);
-            } else {
-                echo json_encode(["status" => "error", "message" => "Error adding RTI officer: " . $conn->error]);
+            $error = error_get_last();
+            $msg = "Failed to save the uploaded slide file.";
+            if ($error && isset($error['message'])) {
+                $msg .= " Details: " . $error['message'];
             }
+            echo json_encode(["status" => "error", "message" => $msg]);
         }
         break;
 
     case 'DELETE':
-        // Delete RTI officer (using query param ?id=X)
+        // Delete slide
         if (!isset($_GET['id'])) {
-             echo json_encode(["status" => "error", "message" => "Missing officer ID"]);
+             echo json_encode(["status" => "error", "message" => "Missing slide ID."]);
              exit;
         }
         $id = intval($_GET['id']);
 
-        $sql = "DELETE FROM rti_officers WHERE id = $id";
+        // Fetch slide details to find image path
+        $sql = "SELECT image_url FROM slider_photos WHERE id = $id";
+        $result = $conn->query($sql);
+        if ($result && $result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $image_url = $row['image_url'];
+            
+            // Delete file from disk if it is in uploads directory
+            if ($image_url && file_exists($image_url) && strpos($image_url, 'uploads/') === 0) {
+                @unlink($image_url);
+            }
+        }
+
+        $sql = "DELETE FROM slider_photos WHERE id = $id";
         if ($conn->query($sql) === TRUE) {
-            echo json_encode(["status" => "success", "message" => "RTI Officer deleted successfully"]);
+            echo json_encode(["status" => "success", "message" => "Slide deleted successfully."]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting RTI officer: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error deleting slide: " . $conn->error]);
         }
         break;
 
     default:
-        echo json_encode(["status" => "error", "message" => "Method not allowed"]);
+        echo json_encode(["status" => "error", "message" => "Method not allowed."]);
         break;
 }
 

@@ -1,11 +1,20 @@
 <?php
 // Database Configuration
-$db_host = 'localhost';
-$db_user = 'root'; 
+$db_host = 'engdept-db';
+$db_user = 'eng_user'; 
 $db_name = 'nwp_engineering_portal';
 
+
+//define('DB_SERVER', 'engdept-db');           // අලුත් ඩේටාබේස් සර්විස් එකේ නම
+//define('DB_USERNAME', 'eng_user');           // අපි සෙට් කරපු යූසර්
+//define('DB_PASSWORD', 'eng_pass_2026');      // අපි සෙට් කරපු පාස්වර්ඩ් එක
+//define('DB_NAME', 'nwp_engineering_portal');  // අලුත් ඩේටාබේස් එකේ නම
+
+
+
+
 // Try multiple password options to make it work in different local/developer environments
-$passwords_to_try = ['Ravi@2025', '', 'root'];
+$passwords_to_try = ['eng_pass_2026', '', 'eng_user'];
 $conn = null;
 $db_connection_error = null;
 

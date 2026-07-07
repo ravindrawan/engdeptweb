@@ -1,17 +1,32 @@
 <?php
+<?php
 header('Content-Type: application/json');
+
+// PHP errors බ්‍රවුසර් එකට පේන්න ඔන් කරමු
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once 'db_config.php';
 
-// Check if database connected successfully
-if (isset($db_connection_error) && $db_connection_error !== null) {
-    echo json_encode(["status" => "error", "message" => "Database Error: " . $db_connection_error]);
-    exit;
-}
+// Try-Catch එකක් දාලා ඩේටාබේස් ලෙඩ ටික අල්ලගමු
+try {
+    // Auto-migrate එක Permission නැති වුණොත් ක්‍රෑෂ් නොවී බේරෙන්න try-catch දානවා
+    try {
+        $res = $conn->query("SHOW COLUMNS FROM division_info LIKE 'banner_url'");
+        if ($res && $res->num_rows == 0) {
+            $conn->query("ALTER TABLE division_info ADD COLUMN banner_url VARCHAR(255) DEFAULT NULL");
+        }
+    } catch (Exception $e) {
+        // Permission නැත්නම් මේක අතඇරලා ඉස්සරහට යන්න දෙනවා
+    }
 
-// Auto-migrate database table for banner_url column
-$res = $conn->query("SHOW COLUMNS FROM division_info LIKE 'banner_url'");
-if ($res && $res->num_rows == 0) {
-    $conn->query("ALTER TABLE division_info ADD COLUMN banner_url VARCHAR(255) DEFAULT NULL");
+} catch (mysqli_sql_exception $e) {
+    echo json_encode([
+        "status" => "error", 
+        "message" => "Database Query/Connection Error: " . $e->getMessage()
+    ]);
+    exit;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];

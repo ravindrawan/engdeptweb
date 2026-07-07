@@ -29,54 +29,67 @@ switch ($method) {
         }
 
         $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
-        $title_en = $conn->real_escape_string($_POST['title_en']);
-        $title_si = isset($_POST['title_si']) ? $conn->real_escape_string($_POST['title_si']) : '';
-        $title_ta = isset($_POST['title_ta']) ? $conn->real_escape_string($_POST['title_ta']) : '';
-        $description_en = $conn->real_escape_string($_POST['description_en']);
-        $description_si = isset($_POST['description_si']) ? $conn->real_escape_string($_POST['description_si']) : '';
-        $description_ta = isset($_POST['description_ta']) ? $conn->real_escape_string($_POST['description_ta']) : '';
-        $icon_class = isset($_POST['icon_class']) && !empty($_POST['icon_class']) ? $conn->real_escape_string($_POST['icon_class']) : 'fa-trophy';
+        $title_en = $_POST['title_en'];
+        $title_si = isset($_POST['title_si']) ? $_POST['title_si'] : '';
+        $title_ta = isset($_POST['title_ta']) ? $_POST['title_ta'] : '';
+        $description_en = $_POST['description_en'];
+        $description_si = isset($_POST['description_si']) ? $_POST['description_si'] : '';
+        $description_ta = isset($_POST['description_ta']) ? $_POST['description_ta'] : '';
+        $icon_class = isset($_POST['icon_class']) && !empty($_POST['icon_class']) ? $_POST['icon_class'] : 'fa-trophy';
 
         if ($id > 0) {
-            // Update existing achievement
-            $sql = "UPDATE achievements SET 
-                    title_en = '$title_en', 
-                    title_si = '$title_si', 
-                    title_ta = '$title_ta', 
-                    description_en = '$description_en', 
-                    description_si = '$description_si', 
-                    description_ta = '$description_ta', 
-                    icon_class = '$icon_class' 
-                    WHERE id = $id";
-            if ($conn->query($sql) === TRUE) {
+            // Prepared Statement එකක් මඟින් Update කිරීම (SQL Injection Safe)
+            $stmt = $conn->prepare("UPDATE achievements SET title_en=?, title_si=?, title_ta=?, description_en=?, description_si=?, description_ta=?, icon_class=? WHERE id=?");
+            $stmt->bind_param("sssssssi", $title_en, $title_si, $title_ta, $description_en, $description_si, $description_ta, $icon_class, $id);
+            
+            if ($stmt->execute()) {
                 echo json_encode(["status" => "success", "message" => "Achievement updated successfully", "id" => $id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error updating achievement: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error updating achievement: " . $stmt->error]);
             }
+            $stmt->close();
         } else {
-            // Insert new achievement
-            $sql = "INSERT INTO achievements (title_en, title_si, title_ta, description_en, description_si, description_ta, icon_class) 
-                    VALUES ('$title_en', '$title_si', '$title_ta', '$description_en', '$description_si', '$description_ta', '$icon_class')";
-            if ($conn->query($sql) === TRUE) {
+            // Prepared Statement එකක් මඟින් Insert කිරීම (සිංහල/දෙමළ යුනිකෝඩ් අකුරු සඳහා වඩාත් සුදුසුයි)
+            $stmt = $conn->prepare("INSERT INTO achievements (title_en, title_si, title_ta, description_en, description_si, description_ta, icon_class) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("sssssss", $title_en, $title_si, $title_ta, $description_en, $description_si, $description_ta, $icon_class);
+            
+            if ($stmt->execute()) {
                 echo json_encode(["status" => "success", "message" => "Achievement added successfully", "id" => $conn->insert_id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error adding achievement: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error adding achievement: " . $stmt->error]);
             }
+            $stmt->close();
         }
         break;
 
     case 'DELETE':
-        if (!isset($_GET['id'])) {
-             echo json_encode(["status" => "error", "message" => "Missing ID"]);
+        // 🛟 Safe Check: URL එකෙන් හෝ Request Body එකෙන් ID එක ලබාගැනීම
+        $id = 0;
+        if (isset($_GET['id'])) {
+            $id = intval($_GET['id']);
+        } else {
+            // JSON body එකක් එවුවොත් එය කියවීම සඳහා fallback එකක්
+            $input = json_decode(file_get_contents('php://input'), true);
+            if (isset($input['id'])) {
+                $id = intval($input['id']);
+            }
+        }
+
+        if ($id <= 0) {
+             echo json_encode(["status" => "error", "message" => "Missing or invalid ID"]);
              exit;
         }
-        $id = intval($_GET['id']);
-        $sql = "DELETE FROM achievements WHERE id = $id";
-        if ($conn->query($sql) === TRUE) {
+
+        // Prepared Statement මඟින් ආරක්ෂිතව Delete කිරීම
+        $stmt = $conn->prepare("DELETE FROM achievements WHERE id = ?");
+        $stmt->bind_param("i", $id);
+
+        if ($stmt->execute()) {
             echo json_encode(["status" => "success", "message" => "Achievement deleted successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting achievement: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error deleting achievement: " . $stmt->error]);
         }
+        $stmt->close();
         break;
 
     default:

@@ -29,42 +29,65 @@ switch ($method) {
         }
 
         $id = isset($_POST['id']) && !empty($_POST['id']) ? intval($_POST['id']) : 0;
-        $category = $conn->real_escape_string($_POST['category']);
-        $title = $conn->real_escape_string($_POST['title']);
-        $url = isset($_POST['url']) && !empty($_POST['url']) ? $conn->real_escape_string($_POST['url']) : '#';
-        $badge = isset($_POST['badge']) && !empty($_POST['badge']) ? $conn->real_escape_string($_POST['badge']) : null;
+        $category = $_POST['category'];
+        $title = $_POST['title'];
+        $url = isset($_POST['url']) && !empty($_POST['url']) ? $_POST['url'] : '#';
+        
+        // Badge එක හිස් නම් variable එක null කරන්න (bind_param වලදී null විදිහට යැවීමට)
+        $badge = isset($_POST['badge']) && !empty($_POST['badge']) ? $_POST['badge'] : null;
 
         if ($id > 0) {
-            // Update existing announcement
-            $sql = "UPDATE announcements SET category = '$category', title = '$title', url = '$url', badge = " . ($badge ? "'$badge'" : "NULL") . " WHERE id = $id";
-            if ($conn->query($sql) === TRUE) {
+            // Update existing announcement (Prepared Statement)
+            $stmt = $conn->prepare("UPDATE announcements SET category = ?, title = ?, url = ?, badge = ? WHERE id = ?");
+            $stmt->bind_param("ssssi", $category, $title, $url, $badge, $id);
+            
+            if ($stmt->execute()) {
                 echo json_encode(["status" => "success", "message" => "Announcement updated successfully", "id" => $id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error updating announcement: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error updating announcement: " . $stmt->error]);
             }
+            $stmt->close();
         } else {
-            // Insert new announcement
-            $sql = "INSERT INTO announcements (category, title, url, badge) VALUES ('$category', '$title', '$url', " . ($badge ? "'$badge'" : "NULL") . ")";
-            if ($conn->query($sql) === TRUE) {
+            // Insert new announcement (Prepared Statement)
+            $stmt = $conn->prepare("INSERT INTO announcements (category, title, url, badge) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssss", $category, $title, $url, $badge);
+            
+            if ($stmt->execute()) {
                 echo json_encode(["status" => "success", "message" => "Announcement added successfully", "id" => $conn->insert_id]);
             } else {
-                echo json_encode(["status" => "error", "message" => "Error adding announcement: " . $conn->error]);
+                echo json_encode(["status" => "error", "message" => "Error adding announcement: " . $stmt->error]);
             }
+            $stmt->close();
         }
         break;
 
     case 'DELETE':
-        if (!isset($_GET['id'])) {
-             echo json_encode(["status" => "error", "message" => "Missing ID"]);
+        $id = 0;
+        if (isset($_GET['id'])) {
+            $id = intval($_GET['id']);
+        } else {
+            // JavaScript body fallback එකක් ලෙස JSON කියවීම
+            $input = json_decode(file_get_contents('php://input'), true);
+            if (isset($input['id'])) {
+                $id = intval($input['id']);
+            }
+        }
+
+        if ($id <= 0) {
+             echo json_encode(["status" => "error", "message" => "Missing or invalid ID"]);
              exit;
         }
-        $id = intval($_GET['id']);
-        $sql = "DELETE FROM announcements WHERE id = $id";
-        if ($conn->query($sql) === TRUE) {
+
+        // Safe Delete
+        $stmt = $conn->prepare("DELETE FROM announcements WHERE id = ?");
+        $stmt->bind_param("i", $id);
+
+        if ($stmt->execute()) {
             echo json_encode(["status" => "success", "message" => "Announcement deleted successfully"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Error deleting announcement: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Error deleting announcement: " . $stmt->error]);
         }
+        $stmt->close();
         break;
 
     default:

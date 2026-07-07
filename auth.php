@@ -6,36 +6,51 @@ require_once 'db_config.php';
 if (isset($db_connection_error) && $db_connection_error !== null) {
     echo json_encode([
         "status" => "error", 
-        "message" => "Database Error: " . $db_connection_error . ". Please ensure MySQL is running and the 'nwp_engineering_portal' database exists."
+        "message" => "Database Error: " . $db_connection_error . ". Please ensure MySQL is running."
     ]);
     exit;
 }
 
 // Handle POST request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $conn->real_escape_string($_POST['username']);
-    $password = $_POST['password'];
+    if (!isset($_POST['username']) || !isset($_POST['password'])) {
+        echo json_encode(["status" => "error", "message" => "Missing username or password fields."]);
+        exit;
+    }
 
-    $sql = "SELECT id, username, full_name, role FROM users WHERE username = '$username' AND password = '$password'";
-    $result = $conn->query($sql);
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+    $md5_password = md5($password); // Legacy MD5 fallback එකක් සඳහා
+
+    // Prepared Statement භාවිතයෙන් පරිශීලකයා සෙවීම (SQL Injection Safe)
+    $stmt = $conn->prepare("SELECT id, username, password, full_name, role FROM users WHERE username = ?");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     if ($result && $result->num_rows > 0) {
         $user = $result->fetch_assoc();
-        echo json_encode([
-            "status" => "success",
-            "user" => [
-                "username" => $user['username'],
-                "name" => $user['full_name'],
-                "role" => $user['role']
-            ]
-        ]);
+        
+        // ඩේටාබේස් එකේ ඇති පාස්වර්ඩ් එක Plain text එකක්ද, MD5 ද නැතහොත් Bcrypt ද කියා සසඳමු
+        if ($password === $user['password'] || $md5_password === $user['password'] || password_verify($password, $user['password'])) {
+            echo json_encode([
+                "status" => "success",
+                "user" => [
+                    "username" => $user['username'],
+                    "name" => $user['full_name'],
+                    "role" => $user['role']
+                ]
+            ]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "Access Failed: Incorrect password."]);
+        }
     } else {
-        echo json_encode(["status" => "error", "message" => "Invalid username or password. If you haven't set up the SQL database, please use the default local login."]);
+        echo json_encode(["status" => "error", "message" => "Access Failed: User not found."]);
     }
+    $stmt->close();
 } else {
     echo json_encode(["status" => "error", "message" => "Invalid request method"]);
 }
 
 if ($conn) $conn->close();
 ?>
-

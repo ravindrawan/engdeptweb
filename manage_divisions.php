@@ -1,5 +1,4 @@
 <?php
-<?php
 header('Content-Type: application/json');
 
 // PHP errors බ්‍රවුසර් එකට පේන්න ඔන් කරමු

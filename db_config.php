@@ -1,7 +1,6 @@
 <?php
 // Database Configuration
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', 0); // JSON කැඩෙන නිසා error එළියට පෙන්වීම නවත්වන්න
 error_reporting(E_ALL);
 
 define('DB_SERVER', 'engdept-db');
@@ -9,27 +8,33 @@ define('DB_USERNAME', 'eng_user');
 define('DB_PASSWORD', 'eng_pass_2026');
 define('DB_NAME', 'nwp_engineering_portal');
 
-// පැරණි කෝඩ් සමඟ ගැළපීම සඳහා variables ද සකසමු
 $db_host = DB_SERVER;
 $db_user = DB_USERNAME;
 $db_name = DB_NAME;
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-// ඩේටාබේස් කනෙක්ෂන් එක සෑදීම
-$conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
 
-// කනෙක්ෂන් එකේ අවුලක් ආවොත් ලෝකල් එන්වයිරන්මන්ට් එක සඳහා fallback එකක්
+// auth.php එකේ බලාපොරොත්තු වන variable එක මුලින්ම null කරමු
+$db_connection_error = null;
+
+mysqli_report(MYSQLI_REPORT_OFF); // Try-catch නැතිව connect_error එක අල්ලන්න
+
+// ඩේටාබේස් කනෙක්ෂන් එක සෑදීම
+$conn = @new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
+
+// OpenShift Database එකට කනෙක්ෂන් එක Fail වුණොත් (උදා: local XAMPP එකේදී ටෙස්ට් කරද්දී)
 if ($conn->connect_error) {
-    // ලෝකල් එකේදී පාස්වර්ඩ් එක හිස්ව තිබුනොත් ට්‍රයි කිරීමට
-    $conn = @new mysqli(DB_SERVER, DB_USERNAME, '', DB_NAME);
+    // 1. Local XAMPP එකේ default settings වලින් කනෙක්ට් වෙන්න ට්‍රයි එකක් දෙමු
+    $conn = @new mysqli('localhost', 'root', '', DB_NAME);
     
     if ($conn->connect_error) {
-        // කිසිවක් කරකියාගත නොහැකි නම් error එක පෙන්වන්න
-        die("Database Connection Failed: " . $conn->connect_error);
+        // 2. ඒකත් Fail නම්, die කරන්නේ නැතිව error එක variable එකකට දාමු
+        $db_connection_error = $conn->connect_error;
     }
 }
 
-// UTF-8 සෙටින්ග්ස්
-$conn->set_charset("utf8mb4");
+// කනෙක්ෂන් එක සාර්ථක නම් පමණක් Charset එක හදන්න
+if ($db_connection_error === null && $conn) {
+    $conn->set_charset("utf8mb4");
+}
 
 // Prevent browser and proxy caching
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

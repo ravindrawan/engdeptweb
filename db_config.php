@@ -1,5 +1,9 @@
 <?php
 // Database Configuration
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 define('DB_SERVER', 'engdept-db');
 define('DB_USERNAME', 'eng_user');
 define('DB_PASSWORD', 'eng_pass_2026');
@@ -9,7 +13,7 @@ define('DB_NAME', 'nwp_engineering_portal');
 $db_host = DB_SERVER;
 $db_user = DB_USERNAME;
 $db_name = DB_NAME;
-
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 // ඩේටාබේස් කනෙක්ෂන් එක සෑදීම
 $conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
 

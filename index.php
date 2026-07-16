@@ -12,7 +12,27 @@ if (strpos($_SERVER['HTTP_HOST'], 'www.') === 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NWP Engineering Department | Home</title>
+    <!-- 1. ප්‍රධාන මාතෘකාව (Title Tag) - සර්ච් රිසල්ට් වල නිල් පාටින් ලොකුවට පෙනෙන නම -->
+<title>Department of Engineering | North Western Province Sri Lanka</title>
+
+<!-- 2. සයිට් එක ගැන කෙටි විස්තරයක් (Meta Description) - සර්ච් රිසල්ට් වල යටින් පෙනෙන පේළි 2 -->
+<meta name="description" content="Official website of the Department of Engineering, North Western Province, Sri Lanka. Access provincial public infrastructure updates, technical evaluation details, and institutional services." />
+
+<!-- 3. සෙවුම් යන්ත්‍ර වලට සයිට් එක Index කරන්න දෙන උපදෙස (Robots Tag) -->
+<meta name="robots" content="index, follow" />
+
+<!-- 4. ජංගම දුරකථන වලට වෙබ් අඩවිය හරියටම පෙනෙන්න (Viewport Tag - Mobile SEO වලට අනිවාර්යයි) -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<!-- 5. Canonical Tag - අපි කලින් කතා වුණු www/non-www ප්‍රශ්නය විසඳන ටැග් එක -->
+<link rel="canonical" href="https://engdept.nw.gov.lk/" />
+
+<!-- 6. Open Graph Tags - ෆේස්බුක් හෝ වට්ස්ඇප් එකේ ලින්ක් එක ශෙයා කරද්දී ලස්සනට පින්තූරය සහ විස්තරය වැටෙන්න -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Department of Engineering - North Western Province" />
+<meta property="og:description" content="Official portal for Provincial Engineering Services, NWP Sri Lanka." />
+<meta property="og:url" content="https://engdept.nw.gov.lk/" />
+<meta property="og:image" content="https://engdept.nw.gov.lk/assets/images/logo.png" /> <!-- ඔයාගේ සයිට් එකේ ලෝගෝ එකේ ලින්ක් එක දෙන්න -->
     <link rel="canonical" href="https://engdept.nw.gov.lk/" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+Sinhala:wght@400;600&family=Times+New+Roman&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

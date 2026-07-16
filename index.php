@@ -1,3 +1,12 @@
+<?php
+if (strpos($_SERVER['HTTP_HOST'], 'www.') === 0) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+    $new_url = $protocol . str_replace('www.', '', $_SERVER['HTTP_HOST']) . $_SERVER['REQUEST_URI'];
+    header("HTTP/1.1 301 Moved Permanently");
+    header("Location: " . $new_url);
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

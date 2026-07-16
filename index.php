@@ -40,7 +40,7 @@ if (strpos($_SERVER['HTTP_HOST'], 'www.') === 0) {
 
     <!-- Main Branding Header -->
     <header class="branding-header">
-        <div class="container branding-container" onclick="window.location.href='index.html'" style="cursor:pointer;">
+        <div class="container branding-container" onclick="window.location.href='index.php'" style="cursor:pointer;">
             <div class="all-logos">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Emblem_of_Sri_Lanka.svg/200px-Emblem_of_Sri_Lanka.svg.png" alt="National Logo" class="emblem" onerror="this.src='logo2.jpg'">
                 <img src="Nwp_sri_lanka.jpg" alt="Provincial Logo" class="emblem">
@@ -62,7 +62,7 @@ if (strpos($_SERVER['HTTP_HOST'], 'www.') === 0) {
                 <i class="fas fa-bars"></i> Menu
             </div>
             <ul class="nav-menu">
-                <li><a href="index.html" data-i18n="nav_home">Home</a></li>
+                <li><a href="index.php" data-i18n="nav_home">Home</a></li>
                 <li class="dropdown">
                     <a href="#"><span data-i18n="nav_about">About Us</span> <i class="fas fa-caret-down"></i></a>
                     <ul class="dropdown-content">

@@ -55,6 +55,7 @@ if (strpos($_SERVER['HTTP_HOST'], 'www.') === 0) {
                     <button><i class="fas fa-search"></i></button>
                 </div>
                 <a href="#" class="member-login-btn" id="loginBtn"><i class="fas fa-user-lock"></i><span data-i18n="btn_login"> Members Login</span></a>
+                <a href="https://hrms-frontend-route-north-western-province-council-production-2.apps.red-k8s.akaza.lk" class="member-login-btn" id="loginBtn"><i class="fas fa-user-lock"></i><span data-i18n="btn_login"> HRM System Login</span></a>
             </div>
         </div>
     </div>
